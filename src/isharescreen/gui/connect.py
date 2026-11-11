@@ -269,7 +269,7 @@ def _launch(values: dict) -> None:
     # the host encodes exactly the chosen backing while drawing the UI at
     # `scale`. For "Auto" (track-window) the scale rides --hidpi.
     advertise = values.get("advertise", "").strip()
-    scale = values.get("scale", "2.0").strip() or "2.0"
+    scale = values.get("scale", "1.0").strip() or "1.0"
     if advertise and advertise.lower() != "auto":
         try:
             bw, bh = (int(x) for x in advertise.lower().split("x", 1))
@@ -395,9 +395,8 @@ _FORM = """<!doctype html><html><head><title>iShareScreen — Connect</title>__H
   </select>
   <label>Display scale</label>
   <select name="scale" title="How large the host UI is drawn — like Windows display scaling (100%–400%). Higher = bigger text/UI. This does NOT change bandwidth; Resolution does.">
-   <option value="1.0">100% — smallest UI, most desktop space</option>
+   <option value="1.0" selected>100% — Standard</option>
    <option value="1.5">150%</option>
-   <option value="2.0" selected>200% — Retina (normal UI, crisp)</option>
    <option value="2.5">250%</option>
    <option value="3.0">300% — large UI</option>
    <option value="3.5">350%</option>

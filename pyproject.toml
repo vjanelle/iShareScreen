@@ -61,6 +61,8 @@ dependencies = [
 # Local test suite — fast, deterministic unit tests that need no remote host,
 # no real decode and no network. `pip install -e .[test]` then `pytest`.
 test = ["pytest>=8"]
+windows = ["PySide6-Essentials>=6.8"]
+windows-build = ["PySide6-Essentials>=6.8", "PyInstaller>=6.11"]
 
 [project.scripts]
 iss = "isharescreen.tui.entry:main"
