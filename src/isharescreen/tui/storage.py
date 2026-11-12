@@ -42,6 +42,8 @@ class ConnectFormValues:
     hidpi: str = "auto"
     decoder: str = "auto"  # decoder name or "auto"
     remember_password: bool = False
+    # Native UI preference; password values remain outside this JSON state.
+    save_password: bool = False
 
 
 def _state_dir() -> Path:

@@ -119,6 +119,10 @@ _AVC_D3D11_REANCHOR_FRAMES = 7000
 _BURST_RETRY_ATTEMPTS = 3
 _BURST_RETRY_SLEEP_S = 0.8
 
+# A media re-offer can itself elicit a same-size layout confirmation. Suppress
+# those echoes while allowing the next display wake to re-arm the encoder.
+_LAYOUT_REOFFER_COOLDOWN_S = 5.0
+
 # Cap on the per-socket drain queue. The drain thread does only recvfrom +
 # put — its only job is to empty the kernel UDP buffer fast enough that
 # packets aren't dropped by the kernel (RcvbufErrors). The process thread
@@ -342,6 +346,7 @@ class Session:
         # see the property `display_rects`. Also reset in `_teardown`.
         self._display_rects: list[DisplayRect] = []
         self._needs_post_layout_fir: bool = False
+        self._last_layout_reoffer_t: float = 0.0
         self._needs_param_harvest: bool = False
         # Cross-RTP-group accumulators for the post-resize param harvest.
         self._harvest_vps: Optional[bytes] = None
@@ -1669,6 +1674,7 @@ class Session:
         # windows for host↔client multi-monitor mapping.
         self._display_rects: list[DisplayRect] = []
         self._needs_post_layout_fir = False
+        self._last_layout_reoffer_t = 0.0
         self._needs_param_harvest = False
         self._harvest_vps = None
         self._harvest_sps = None
@@ -3316,6 +3322,20 @@ class Session:
                             new_bw != self._runtime_canvas_w
                             or new_bh != self._runtime_canvas_h
                         )
+                        # Sleep/wake and agent switches can stop the encoder
+                        # without changing its canvas. Re-arm media on those
+                        # transitions too: refreshing only the cursor leaves a
+                        # black picture until a manual resize sends a re-offer.
+                        # Do not re-offer on the initial layout, or on a prompt
+                        # same-size confirmation of our own re-offer. A genuine
+                        # resize must always go through, even during cooldown.
+                        needs_post_layout_arm = had_canvas and (
+                            changed or (
+                                bw > 0 and bh > 0
+                                and time.monotonic() - self._last_layout_reoffer_t
+                                >= _LAYOUT_REOFFER_COOLDOWN_S
+                            )
+                        )
                         if new_bw and new_bh:
                             self._runtime_canvas_w = new_bw
                             self._runtime_canvas_h = new_bh
@@ -3389,9 +3409,8 @@ class Session:
                 # the cursor keeps flowing even on no-geometry-change layouts.
                 self._send_cursor_rearm()
                 if needs_post_layout_arm:
-                    # Geometry actually changed — additionally re-offer the
-                    # media session (0x1c) so the encoder restarts at the new
-                    # canvas. The FBUR it needs was just sent by the re-arm.
+                    # Re-offer media after a resize or same-size transition.
+                    # The FBUR it needs was just sent by the cursor re-arm.
                     self._schedule_post_layout_arm()
                 offset += 2 + prefix_len
             else:
@@ -3433,11 +3452,10 @@ class Session:
                 pass
 
     def _schedule_post_layout_arm(self) -> None:
-        """Called from the 0x451 handler on a geometry CHANGE. Re-offers the
+        """Called from the 0x451 handler on a display transition. Re-offers the
         media session (0x1c) with the same SRTP keys so the server restarts
-        the HEVC encoder at the new canvas dimensions. Without the 0x1c
-        re-offer the server stops encoding — it won't resize the media canvas
-        without a fresh media-stream configuration.
+        the encoder, including after sleep/wake at unchanged dimensions.
+        Without the 0x1c re-offer the server can stay stopped until a resize.
 
         The non-incremental FBU request the encoder restart needs is already
         sent by `_send_cursor_rearm()` immediately before this call (see the
@@ -3464,6 +3482,7 @@ class Session:
                 alt_session=self._config.alt_session,
             )
             neg.cipher.encrypt_and_send(neg.sock, msg_1c)
+            self._last_layout_reoffer_t = time.monotonic()
             log.info("post-layout: sent 0x1c re-offer (%dB)", len(msg_1c))
         except OSError as e:
             log.warning("post-layout 0x1c send failed: %s", e)

@@ -11,6 +11,7 @@ from __future__ import annotations
 import dataclasses
 import logging
 import os
+import sys
 import threading
 import time
 from typing import Optional
@@ -406,6 +407,8 @@ def run(
     # adapter is logged below so the active GPU + backend is visible when
     # triaging render problems on a given machine.
     _gpu_backend = os.environ.get("ISS_GPU_BACKEND", "").strip()
+    if not _gpu_backend and sys.platform == "win32":
+        _gpu_backend = "D3D12"
     if _gpu_backend:
         os.environ["WGPU_BACKEND_TYPE"] = _gpu_backend
     _gpu_fallback = os.environ.get("ISS_GPU_FALLBACK", "0") == "1"

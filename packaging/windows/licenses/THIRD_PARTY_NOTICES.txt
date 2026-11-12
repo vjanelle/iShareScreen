@@ -1,0 +1,18 @@
+iShareScreen Windows application — third-party notices
+=======================================================
+
+iShareScreen is licensed under AGPL-3.0-or-later. The full project license
+is embedded in the executable as LICENSE.
+
+This application uses PySide6 Essentials and Qt Widgets from the Qt for
+Python community distribution. Qt for Python is available under LGPLv3/GPLv3
+terms. The complete GNU LGPLv3 and GPLv3 texts and the Qt GPL exception are
+included alongside this notice. Qt's licensing and Qt for Python license
+information are available at:
+
+  Qt licensing: https://doc.qt.io/qt-6/licensing.html
+  Qt for Python licenses: https://doc.qt.io/qtforpython-6/licenses.html
+
+The PyInstaller build also includes the runtime dependencies listed in
+pyproject.toml. Their distribution metadata and any license files supplied
+by their packages are included in the executable archive.

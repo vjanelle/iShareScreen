@@ -1,0 +1,71 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="iShareScreen"
+           Manufacturer="iShareScreen contributors"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="{7B046D62-86E4-4B9A-9A87-4C99735EAC88}"
+           Scope="perUser"
+           InstallerVersion="500">
+    <SummaryInformation Description="Native macOS screen sharing client" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of iShareScreen is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtf)" />
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+
+    <Feature Id="MainFeature" Title="iShareScreen" Level="1">
+      <ComponentGroupRef Id="ApplicationFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="CleanupProgramsDirectory" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="PerUserProgramFilesFolder">
+      <Directory Id="INSTALLFOLDER" Name="iShareScreen" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="iShareScreen" />
+    </StandardDirectory>
+
+    <ComponentGroup Id="ApplicationFiles" Directory="INSTALLFOLDER">
+      <Component Id="ApplicationExecutable" Guid="{D2DAF3C5-0D85-430F-AE35-8C256F982D9E}">
+        <File Id="AppExe"
+              Source="$(var.PublishDir)\iShareScreen.exe"
+              />
+        <RemoveFolder Id="RemoveInstallFolder" On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\iShareScreen"
+                       Name="InstallPath"
+                       Type="string"
+                       Value="[INSTALLFOLDER]"
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="{865F3A8D-A930-42C8-8E89-7AC70D3AA9A7}">
+      <Shortcut Id="StartMenuAppShortcut"
+                Name="iShareScreen"
+                Target="[INSTALLFOLDER]iShareScreen.exe"
+                WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveStartMenuFolder" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\iShareScreen"
+                     Name="ShortcutInstalled"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <Component Id="CleanupProgramsDirectory" Directory="PerUserProgramFilesFolder" Guid="{F355194D-28F9-46B5-BA13-9FCE01774F20}">
+      <RemoveFolder Id="RemovePerUserProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="Software\iShareScreen"
+                     Name="ProgramsFolder"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+  </Fragment>
+</Wix>

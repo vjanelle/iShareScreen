@@ -26,28 +26,45 @@ available.
 
 #### Windows
 
-1. Install Python 3.10 or later from [python.org](https://www.python.org/downloads/)
-   (the installer includes pip; check "Add python.exe to PATH" during install).
-2. Open PowerShell or cmd and run:
-   ```sh
-   pip install git+https://github.com/renegadelink/iShareScreen.git
-   ```
+Build the single-file desktop app on Windows with Python 3.12 or newer:
 
-3. Audio uses the included PyAV plain AAC-ELD decoder automatically, without
-   an environment variable or another DLL. Audible playback was confirmed
-   with a macOS 27.2 host. If PyAV cannot initialize, the client tries
-   **libfdk-aac**, available through [MSYS2](https://www.msys2.org):
-   ```sh
-   pacman -Sy --noconfirm mingw-w64-x86_64-fdk-aac
-   ```
-   This drops `libfdk-aac-2.dll` at `C:\msys64\mingw64\bin\`, which iss
-   searches automatically. If you already have [scoop](https://scoop.sh),
-   `scoop install msys2` followed by the same `pacman` command also
-   works — iss looks under `%USERPROFILE%\scoop\apps\msys2\current\mingw64\bin`
-   too. Without a usable audio decoder, video continues and a warning is logged.
-   To select FDK explicitly for a different host configuration, set
-   `$env:AAC_BACKEND = 'fdk'` before launching from the same PowerShell window.
-   See [audio configuration and negotiation notes](docs/audio-negotiation.md).
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[windows-build]"
+python -m PyInstaller --noconfirm --clean packaging/windows/isharescreen.spec
+```
+
+Launch `dist\iShareScreen.exe`. It opens a native connect window and uses the
+native video viewer; Python does not need to be installed on the machine that
+runs the built executable. See [the Windows build notes](packaging/windows/README.md)
+for details. For development from Python instead of the packaged app, install
+the `windows` extra:
+
+```powershell
+python -m pip install -e ".[windows]"
+```
+
+To build an MSI installer, install the .NET 6 SDK or newer and run
+`packaging\windows\build-msi.ps1`. The MSI is written to `dist\iShareScreen.msi`.
+
+Audio uses the included PyAV plain AAC-ELD decoder automatically, without an
+environment variable or another DLL. If PyAV cannot initialize, the client
+tries **libfdk-aac**, available through [MSYS2](https://www.msys2.org):
+
+```powershell
+pacman -Sy --noconfirm mingw-w64-x86_64-fdk-aac
+```
+
+Without a usable audio decoder, video continues and a warning is logged. See
+[audio configuration and negotiation notes](docs/audio-negotiation.md).
+
+For command-line use, the existing CLI entry remains available after installing
+the Python package:
+
+```powershell
+iss --host mac.local -u me
+```
 
 #### Linux (Debian / Ubuntu)
 
