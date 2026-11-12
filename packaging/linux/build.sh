@@ -8,7 +8,7 @@ if [[ $(uname -s) != Linux || $arch != x86_64 ]]; then
     echo 'This build currently targets Linux x86_64 only.' >&2
     exit 1
 fi
-"$python" -c 'import PyInstaller, isharescreen, dbus, secretstorage, keyring'
+"$python" -c 'import PyInstaller, isharescreen, dbus, secretstorage, keyring; from PySide6 import QtWidgets'
 version=$("$python" -c 'from isharescreen import __version__; print(__version__)')
 mkdir -p build/appimage-tools dist
 tool=${APPIMAGETOOL:-"$root/build/appimage-tools/appimagetool-1.9.1-x86_64.AppImage"}

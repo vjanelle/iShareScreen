@@ -1,8 +1,9 @@
-"""Native PySide6 connection window for Windows."""
+"""Native PySide6 connection window for Windows and Linux."""
 from __future__ import annotations
 
 import logging
 import sys
+import threading
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
@@ -26,6 +27,7 @@ from PySide6.QtWidgets import (
 )
 
 from ..tui.storage import ConnectFormValues, load_last
+from . import credential_store
 
 log = logging.getLogger("iss.native.ui")
 
@@ -82,6 +84,8 @@ class ConnectWindow(QMainWindow):
     """Connect form and saved settings; the dashboard owns live sessions."""
 
     connect_requested = Signal(object)
+    _credentials_loaded = Signal(object, int, object)
+    _credential_forgotten = Signal(object, int, bool)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -93,9 +97,16 @@ class ConnectWindow(QMainWindow):
         self._build_ui()
         self._restore_values()
         self._credential_identity: tuple[str, str] | None = None
+        self._credential_generation = 0
+        self._credentials_loaded.connect(self._apply_saved_password)
+        self._credential_forgotten.connect(self._apply_forgotten_password)
         self._restore_saved_password()
         self.host.editingFinished.connect(self._restore_saved_password)
         self.user.editingFinished.connect(self._restore_saved_password)
+        self.host.textEdited.connect(self._invalidate_identity)
+        self.user.textEdited.connect(self._invalidate_identity)
+        self.password.textEdited.connect(self._invalidate_credential_read)
+        self.save_password.clicked.connect(self._invalidate_credential_read)
         help_menu = self.menuBar().addMenu("&Help")
         licenses_action = QAction("Open-source licenses", self)
         licenses_action.triggered.connect(self._show_licenses)
@@ -138,7 +149,11 @@ class ConnectWindow(QMainWindow):
         self.password = QLineEdit()
         self.password.setPlaceholderText("Password")
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.save_password = QCheckBox("Save password in Windows Credential Manager")
+        self.save_password = QCheckBox(
+            "Save password in Windows Credential Manager" if sys.platform == "win32"
+            else "Save password in desktop keyring (KDE / GNOME)")
+        self.forget_password = QPushButton("Forget saved password")
+        self.forget_password.clicked.connect(self._forget_saved_password)
         self.host.setClearButtonEnabled(True)
         self.user.setClearButtonEnabled(True)
 
@@ -151,6 +166,7 @@ class ConnectWindow(QMainWindow):
         form.addRow("User", self.user)
         form.addRow("Password", self.password)
         form.addRow("", self.save_password)
+        form.addRow("", self.forget_password)
         section_rule = QFrame()
         section_rule.setFrameShape(QFrame.Shape.HLine)
         section_rule.setObjectName("rule")
@@ -239,19 +255,73 @@ class ConnectWindow(QMainWindow):
         if identity == self._credential_identity:
             return
         self._credential_identity = identity
+        self._credential_generation += 1
+        generation = self._credential_generation
         self.password.clear()
         self.save_password.setChecked(False)
         if not all(identity):
             return
-        try:
-            from .windows_credentials import read_password
-            password = read_password(*identity)
-        except OSError as exc:
-            log.warning("could not read saved credential: %s", exc)
+        def read() -> None:
+            try:
+                password = credential_store.read_password(*identity)
+            except OSError:
+                log.warning("Could not read saved credential; enter a password manually.")
+                password = None
+            try:
+                self._credentials_loaded.emit(identity, generation, password)
+            except RuntimeError:
+                pass  # the window was destroyed while the desktop prompt ran
+
+        threading.Thread(target=read, daemon=True, name="iss-keyring-read").start()
+
+    def _apply_saved_password(self, identity, generation: int, password) -> None:
+        current = (self.host.text().strip(), self.user.text().strip())
+        if (identity != current or identity != self._credential_identity
+                or generation != self._credential_generation or self.password.text()):
             return
         if password is not None:
             self.password.setText(password)
             self.save_password.setChecked(True)
+
+    def _invalidate_credential_read(self, *_args) -> None:
+        self._credential_generation += 1
+
+    def _invalidate_identity(self, *_args) -> None:
+        self._invalidate_credential_read()
+        self.password.clear()
+        self.save_password.setChecked(False)
+
+    def _forget_saved_password(self) -> None:
+        identity = (self.host.text().strip(), self.user.text().strip())
+        if not all(identity):
+            self.show_error("Enter the host and account whose saved password should be forgotten.")
+            return
+        self._invalidate_credential_read()
+        generation = self._credential_generation
+        self.forget_password.setEnabled(False)
+        def forget() -> None:
+            try:
+                credential_store.delete_password(*identity)
+                success = True
+            except OSError:
+                success = False
+            try:
+                self._credential_forgotten.emit(identity, generation, success)
+            except RuntimeError:
+                pass
+        threading.Thread(target=forget, daemon=True, name="iss-keyring-forget").start()
+
+    def _apply_forgotten_password(self, identity, generation: int, success: bool) -> None:
+        self.forget_password.setEnabled(True)
+        current = (self.host.text().strip(), self.user.text().strip())
+        if identity != current or generation != self._credential_generation:
+            return
+        if not success:
+            self.show_error("Could not forget the password. Unlock the desktop keyring and try again.")
+            return
+        self.password.clear()
+        self.save_password.setChecked(False)
+        self.message.setText("Saved password forgotten.")
 
     @staticmethod
     def _select_data(combo: QComboBox, value: str) -> None:
@@ -279,6 +349,7 @@ class ConnectWindow(QMainWindow):
             session_mode=str(self.session_mode.currentData()),
         )
         values.save_password = self.save_password.isChecked()
+        values.remember_password = values.save_password
         self.connect_button.setEnabled(False)
         self.connect_button.setText("Starting…")
         self.message.setText("Starting the native viewer…")

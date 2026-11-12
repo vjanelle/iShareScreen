@@ -1,4 +1,4 @@
-"""Worker-process and loopback control client for the native Windows UI."""
+"""Worker-process and local control client for the native desktop UI."""
 from __future__ import annotations
 
 import http.server
@@ -22,16 +22,32 @@ from ..tui.storage import ConnectFormValues, save_last
 log = logging.getLogger("iss.native")
 
 
-def _update_saved_password(values: ConnectFormValues) -> None:
+def _update_saved_password(values: ConnectFormValues) -> bool:
     """Best-effort credential persistence; never block a connection attempt."""
     try:
-        from .windows_credentials import delete_password, write_password
+        from .credential_store import delete_password, write_password
         if values.save_password:
             write_password(values.host, values.user, values.password)
         else:
             delete_password(values.host, values.user)
-    except OSError as exc:
-        log.warning("could not update saved credential: %s", exc)
+        return True
+    except OSError:
+        log.warning("Could not update the desktop credential store.")
+        return False
+
+
+def _connect_control(socket_path: str) -> socket.socket:
+    if sys.platform == "win32":
+        port = int(Path(socket_path + ".port").read_text(encoding="ascii").strip())
+        return socket.create_connection(("127.0.0.1", port), timeout=1.0)
+    conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        conn.settimeout(1.0)
+        conn.connect(socket_path)
+        return conn
+    except OSError:
+        conn.close()
+        raise
 
 
 def _worker_arguments(values: ConnectFormValues, socket_path: str, log_path: str) -> list[str]:
@@ -128,7 +144,13 @@ class NativeSession(QObject):
         log_path = str(Path(self._temp_dir) / "session.log")
         values.frontend = "desktop"
         save_last(values)
-        _update_saved_password(values)
+        # Desktop unlock prompts can wait for user input. Keep them off Qt's
+        # event loop so manually supplied credentials can connect immediately.
+        def save_credentials() -> None:
+            if not _update_saved_password(values):
+                self.log_line.emit("Desktop keyring update failed; password saving/removal could not be confirmed.")
+
+        threading.Thread(target=save_credentials, daemon=True, name="iss-keyring-write").start()
         self.status.emit({"status": "connecting", "host": values.host, "frontend": "desktop"})
 
         self._start_choice_server()
@@ -269,38 +291,25 @@ class NativeSession(QObject):
             return
 
     def _read_control(self, socket_path: str, generation: int) -> None:
-        port_file = Path(socket_path + ".port")
         conn: socket.socket | None = None
         deadline = time.monotonic() + 30.0
-        port: int | None = None
         while not self._stop_evt.is_set() and generation == self._generation:
             proc = self._proc
             if proc is None or proc.poll() is not None:
                 break
             try:
-                if port_file.exists():
-                    port = int(port_file.read_text(encoding="ascii").strip())
-                    break
+                conn = _connect_control(socket_path)
+                break
             except (OSError, ValueError):
                 pass
             if time.monotonic() >= deadline:
                 self.log_line.emit("Timed out waiting for the session control endpoint.")
                 return
             time.sleep(0.2)
-        if port is None or self._stop_evt.is_set() or generation != self._generation:
-            return
-
-        deadline = time.monotonic() + 15.0
-        while not self._stop_evt.is_set() and generation == self._generation:
-            try:
-                conn = socket.create_connection(("127.0.0.1", port), timeout=1.0)
-                break
-            except OSError:
-                if time.monotonic() >= deadline:
-                    self.log_line.emit("Could not connect to the session control endpoint.")
-                    return
-                time.sleep(0.2)
         if conn is None:
+            return
+        if self._stop_evt.is_set() or generation != self._generation:
+            conn.close()
             return
         conn.settimeout(0.5)
         with self._ctrl_lock:

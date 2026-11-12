@@ -86,6 +86,8 @@ def _make_parser() -> argparse.ArgumentParser:
         ),
     )
     p.add_argument("--version", action="version", version=f"iss {__version__}")
+    p.add_argument("--browser-ui", action="store_true",
+                   help="open the browser connection UI instead of the native application")
 
     g = p.add_argument_group("connection")
     g.add_argument("--host", required=False, help="hostname or IP of the Mac")

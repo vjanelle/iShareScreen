@@ -1,4 +1,4 @@
-"""PySide6 application entry point for the Windows desktop UI."""
+"""PySide6 application entry point for the native desktop UI."""
 from __future__ import annotations
 
 import sys
@@ -9,8 +9,8 @@ def main(argv: list[str] | None = None) -> int:
         from PySide6.QtWidgets import QApplication
     except ImportError:  # useful when using the optional Windows extra
         print(
-            "The native Windows interface requires PySide6. Install it with "
-            "`pip install 'isharescreen[windows]'`.",
+            "The native interface requires PySide6. Install it with "
+            "`pip install 'isharescreen[desktop]'`, or use `iss --browser-ui`.",
             file=sys.stderr,
         )
         return 1
@@ -55,7 +55,7 @@ class _NativeController:
 
 
 _APP_STYLE = """
-QWidget { background: #15181e; color: #e9edf3; font-family: 'Segoe UI'; font-size: 10pt; }
+QWidget { background: #15181e; color: #e9edf3; font-size: 10pt; }
 QMainWindow { background: #15181e; }
 QLabel#title { font-size: 21pt; font-weight: 650; color: #f7f9fc; }
 QLabel#subtitle { color: #9aa6b7; font-size: 10pt; }

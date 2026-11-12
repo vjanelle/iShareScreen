@@ -31,6 +31,7 @@ dependencies = [
     "keyring>=25.7,<26; sys_platform == 'linux'",
     "SecretStorage>=3.3,<4; sys_platform == 'linux'",
     "dbus-python>=1.3,<2; sys_platform == 'linux'",
+    "PySide6-Essentials>=6.8; sys_platform == 'linux'",
     # Core protocol + media
     "cryptography>=42.0",
     "pycryptodome>=3.20",
@@ -65,6 +66,7 @@ dependencies = [
 # Local test suite — fast, deterministic unit tests that need no remote host,
 # no real decode and no network. `pip install -e .[test]` then `pytest`.
 test = ["pytest>=8"]
+desktop = ["PySide6-Essentials>=6.8"]
 windows = ["PySide6-Essentials>=6.8"]
 windows-build = ["PySide6-Essentials>=6.8", "PyInstaller>=6.11"]
 

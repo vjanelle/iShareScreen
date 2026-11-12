@@ -45,7 +45,9 @@ def test_form_values_preserve_fixed_scale_decoder_and_session_mode():
     assert values.alt_session is True and values.share_console is False
 
 
-def test_connect_form_inputs_share_one_aligned_field_column():
+def test_connect_form_inputs_share_one_aligned_field_column(monkeypatch):
+    from isharescreen.gui import native_connect
+    monkeypatch.setattr(native_connect, "load_last", lambda: None)
     app = QApplication.instance() or QApplication([])
     window = ConnectWindow()
     window.show()

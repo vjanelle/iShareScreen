@@ -1,7 +1,7 @@
 """`iss` console-script entry. Routes between the platform GUI and CLI.
 
-On Windows, bare `iss` opens the native PySide6 connect application. Other
-platforms keep the browser connect form. CLI flags run the session directly.
+On Windows and Linux, bare `iss` opens the native PySide6 application.
+`--browser-ui` opens the browser controller. CLI flags run sessions directly.
 """
 from __future__ import annotations
 
@@ -62,8 +62,10 @@ def main() -> int:
     if "--host" in argv or any(a in _CLI_ROUTING_FLAGS for a in argv):
         from isharescreen.cli import main as cli_main
         return cli_main()
-    # Default: native Windows UI; the browser controller remains available elsewhere.
-    if sys.platform == "win32":
+    if "--browser-ui" in argv:
+        from isharescreen.gui.connect import main as gui_main
+        return gui_main()
+    if sys.platform == "win32" or sys.platform.startswith("linux"):
         from isharescreen.gui.native_entry import main as native_main
         return native_main()
     from isharescreen.gui.connect import main as gui_main

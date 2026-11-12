@@ -42,3 +42,16 @@ def test_bundled_portaudio_is_found_without_a_system_install(monkeypatch, tmp_pa
     R.configure_environment()
     assert ctypes.util.find_library("portaudio") == str(tmp_path / "libportaudio.so.2")
     assert ctypes.util.find_library("other") is None
+
+
+def test_frozen_qt_paths_do_not_leak_to_host_helpers(monkeypatch, tmp_path):
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    monkeypatch.setenv("QT_PLUGIN_PATH", str(tmp_path / "PySide6/Qt/plugins"))
+    monkeypatch.setenv("QML2_IMPORT_PATH", str(tmp_path / "PySide6/Qt/qml"))
+    monkeypatch.setenv("QT_QPA_PLATFORM_PLUGIN_PATH", "/host/qt/plugins")
+    R.configure_environment()
+    assert "QT_PLUGIN_PATH" not in os.environ
+    assert "QML2_IMPORT_PATH" not in os.environ
+    assert os.environ["QT_QPA_PLATFORM_PLUGIN_PATH"] == "/host/qt/plugins"

@@ -38,6 +38,28 @@ def test_windows_default_routes_to_native_ui(monkeypatch):
     assert calls == [None]
 
 
+def test_linux_default_routes_to_native_ui(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(sys, "argv", ["iss"])
+    monkeypatch.setitem(sys.modules, "isharescreen.gui.native_entry",
+                        _stub("isharescreen.gui.native_entry", "main", 17, calls))
+    monkeypatch.setitem(sys.modules, "isharescreen.gui.connect",
+                        _stub("isharescreen.gui.connect", "main", 19, []))
+    assert entry.main() == 17
+    assert calls == [None]
+
+
+def test_explicit_browser_ui_routes_to_browser(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sys, "platform", "linux")
+    monkeypatch.setattr(sys, "argv", ["iss", "--browser-ui"])
+    monkeypatch.setitem(sys.modules, "isharescreen.gui.connect",
+                        _stub("isharescreen.gui.connect", "main", 19, calls))
+    assert entry.main() == 19
+    assert calls == [None]
+
+
 def test_worker_mode_routes_to_cli_and_removes_private_flag(monkeypatch):
     calls = []
     monkeypatch.setattr(sys, "platform", "win32")

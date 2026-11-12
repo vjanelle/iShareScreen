@@ -1,0 +1,20 @@
+iShareScreen Linux application — third-party notices
+===================================================
+
+iShareScreen is licensed under AGPL-3.0-or-later. The project license is
+included as LICENSE, both in the license viewer and application documentation.
+
+The native interface uses PySide6 Essentials and Qt Widgets from the Qt for
+Python community distribution. LGPLv3, GPLv3, and the Qt GPL exception texts
+are provided alongside this notice. Qt licensing and source information:
+
+  https://doc.qt.io/qt-6/licensing.html
+  https://doc.qt.io/qtforpython-6/licenses.html
+  https://code.qt.io/cgit/pyside/pyside-setup.git/
+  https://code.qt.io/cgit/qt/
+
+The dynamically loaded Qt libraries can be inspected or replaced after
+extracting the AppImage with --appimage-extract. Python package distribution
+metadata and the license files supplied by those packages are included in
+the application bundle. PortAudio's copyright notice is included in the
+application documentation when supplied by the build host.

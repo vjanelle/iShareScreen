@@ -90,6 +90,7 @@ def load_last() -> Optional[ConnectFormValues]:
         hidpi=str(data.get("hidpi", "auto")),
         decoder=str(data.get("decoder", "auto")),
         remember_password=bool(data.get("remember_password", False)),
+        save_password=bool(data.get("save_password", data.get("remember_password", False))),
     )
 
 
@@ -113,6 +114,7 @@ def save_last(values: ConnectFormValues) -> None:
             "hidpi": values.hidpi,
             "decoder": values.decoder,
             "remember_password": values.remember_password,
+            "save_password": values.save_password,
         }
         p.write_text(json.dumps(data, indent=2))
         try:

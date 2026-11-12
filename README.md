@@ -76,12 +76,13 @@ chmod +x iShareScreen-0.1.0-x86_64.AppImage
 ./iShareScreen-0.1.0-x86_64.AppImage
 ```
 
-Python, application dependencies, and PortAudio are bundled. CI builds on
+Python, the native PySide6/Qt GUI, application dependencies, and PortAudio are bundled. CI builds on
 Ubuntu 22.04 (glibc 2.35 baseline); locally built images require the build
-host's glibc or newer. Your desktop supplies its browser, graphics drivers,
-and D-Bus session. The connection form opens in your browser; select
-**desktop (native window)** for the native video viewer. The browser video
-frontend requires a browser supporting WebTransport and WebCodecs.
+host's glibc or newer. Your desktop supplies graphics drivers and its D-Bus
+session. Launching the AppImage opens the native connection window and
+diagnostics dashboard, with video in a separate native viewer window.
+The previous browser controller is available with `--browser-ui`; browser
+video requires a browser supporting WebTransport and WebCodecs.
 
 If FUSE is unavailable, extract and run instead:
 
@@ -90,14 +91,17 @@ If FUSE is unavailable, extract and run instead:
 ./squashfs-root/AppRun
 ```
 
-On Linux, **Remember password in desktop keyring** saves the submitted
+On Linux, **Save password in desktop keyring (KDE / GNOME)** saves the submitted
 host/account password using GNOME Keyring (Secret Service) or KDE Wallet
-(Plasma 5/6). Leave the password field blank to use the saved credential.
+(Plasma 5/6). Saved credentials fill the masked password field when the host
+and account match. Keyring requests run in the background so unlock prompts
+do not freeze the form.
 **Forget saved password** deletes the entry for the host/account currently
-entered. Connecting with Remember unchecked also removes that saved entry.
+entered. Connecting with Save unchecked also removes that saved entry.
 Your desktop may ask to unlock or grant access to its keyring. If access
 fails, enter the password manually; there is no plaintext storage fallback.
-Passwords are never embedded in the connection page or its JSON settings.
+Passwords are never written to JSON settings. The optional browser controller
+keeps saved passwords server-side and accepts a blank field to retrieve them.
 CLI `--password-stdin` continues to work without accessing the keyring.
 
 Audio uses the bundled PyAV plain AAC-ELD decoder by default. Optional host
@@ -123,7 +127,7 @@ To install from source instead:
    sudo apt install python3 python3-pip python3-venv \
        libvulkan1 libgl1 libegl1 \
        libxrandr2 libxinerama1 libxcursor1 libxi6 \
-       libportaudio2 libfdk-aac2 \
+       libportaudio2 libfdk-aac2 libxcb-cursor0 libxkbcommon-x11-0 \
        build-essential pkg-config python3-dev libdbus-1-dev libglib2.0-dev \
        xclip
    ```
@@ -157,10 +161,14 @@ produce images requiring their newer glibc. No macOS host is needed to build.
 
 ```sh
 sudo apt install python3 python3-venv build-essential pkg-config \
-    libdbus-1-dev libglib2.0-dev libportaudio2 curl
+    libdbus-1-dev libglib2.0-dev libportaudio2 curl \
+    libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 \
+    libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0 \
+    libegl1 libgl1 libfontconfig1 libwayland-client0 \
+    libwayland-cursor0 libwayland-egl1 libxkbcommon0
 python3 -m venv .venv-build
 .venv-build/bin/python -m pip install '.[test]' -r packaging/linux/requirements-build.txt
-.venv-build/bin/python -m pytest
+QT_QPA_PLATFORM=offscreen .venv-build/bin/python -m pytest
 PYTHON=.venv-build/bin/python packaging/linux/build.sh
 ```
 
@@ -191,11 +199,17 @@ UDP 5900–5901 inbound.
 iss
 ```
 
-Opens a browser connection form for host / username / password (masked)
-and resolution, then a live diagnostics dashboard. Video streams in a
-browser tab or native window. The last host, username, frontend, and
-remember-password preference pre-fill the form on the next launch.
-Passwords are stored only when requested, in the Linux desktop keyring.
+On Linux and Windows, opens the native Qt connection form and diagnostics
+dashboard. Video streams in a separate native window. Connection settings
+pre-fill the form on the next launch. Passwords are saved only when requested,
+in the Linux desktop keyring or Windows Credential Manager.
+
+To use the previous browser controller instead:
+
+```sh
+iss --browser-ui
+# or ./dist/iShareScreen-0.1.0-x86_64.AppImage --browser-ui
+```
 
 Any flag accepted by `iss --headless` also pre-fills the form, so
 launchers can do:

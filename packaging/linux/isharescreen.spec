@@ -10,11 +10,18 @@ from PyInstaller.utils.hooks import (
 root = Path(SPECPATH).parents[1]
 datas = collect_data_files("isharescreen")
 datas += copy_metadata("isharescreen", recursive=True)
+datas += copy_metadata("PySide6-Essentials", recursive=True)
+datas += [(str(root / "LICENSE"), "licenses")]
+datas += [(str(path), "licenses") for path in
+          (root / "packaging/windows/licenses").glob("*.txt")
+          if path.name != "THIRD_PARTY_NOTICES.txt"]
+datas += [(str(root / "packaging/linux/THIRD_PARTY_NOTICES.txt"), "licenses")]
 binaries = []
 hiddenimports = collect_submodules("isharescreen", filter=lambda n: not n.endswith("vtdecode"))
 hiddenimports += ["keyring.backends.SecretService", "keyring.backends.kwallet",
                   "dbus.mainloop.glib", "sounddevice", "rendercanvas.glfw",
-                  "rendercanvas.offscreen", "wgpu.backends.wgpu_native"]
+                  "rendercanvas.offscreen", "wgpu.backends.wgpu_native",
+                  "PySide6.QtCore", "PySide6.QtGui", "PySide6.QtWidgets"]
 for package in ("av", "wgpu", "glfw", "rendercanvas"):
     datas += collect_data_files(package)
     binaries += collect_dynamic_libs(package)
@@ -33,7 +40,8 @@ a = Analysis(
     [str(root / "packaging/linux/entry.py")],
     pathex=[str(root / "src")], binaries=binaries, datas=datas,
     hiddenimports=hiddenimports,
-    excludes=["tkinter", "pytest", "PyQt5", "PyQt6", "PySide2", "PySide6"],
+    excludes=["tkinter", "pytest", "PyQt5", "PyQt6", "PySide2",
+              "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.QtWebEngineQuick"],
 )
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="iss", console=True)

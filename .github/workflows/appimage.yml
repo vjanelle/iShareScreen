@@ -21,10 +21,15 @@ jobs:
       - name: Install build libraries
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libdbus-1-dev libglib2.0-dev libportaudio2
+          sudo apt-get install -y build-essential pkg-config libdbus-1-dev libglib2.0-dev libportaudio2 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 \
+            libxcb-xkb1 libxkbcommon-x11-0 libegl1 libgl1 libfontconfig1 \
+            libwayland-client0 libwayland-cursor0 libwayland-egl1 libxkbcommon0
       - name: Install application and build dependencies
         run: python -m pip install '.[test]' -r packaging/linux/requirements-build.txt
       - name: Test
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: python -m pytest
       - name: Build AppImage
         run: packaging/linux/build.sh
@@ -37,10 +42,19 @@ jobs:
           ./squashfs-root/AppRun --version
           ./squashfs-root/AppRun --help
           ./squashfs-root/AppRun --list-decoders
+          ./squashfs-root/AppRun --iss-worker --version
           test -s squashfs-root/usr/bin/_internal/isharescreen/frontend/wt/static/index.html
           test -s squashfs-root/usr/bin/_internal/isharescreen/frontend/wt/static/audio-worklet.js
           test -s squashfs-root/usr/bin/_internal/isharescreen/proxy/media/samples/hevc420-idr.hevc
           test -s squashfs-root/usr/bin/_internal/isharescreen/proxy/media/samples/hevc444-idr.hevc
+          test -s squashfs-root/usr/bin/_internal/PySide6/Qt/plugins/platforms/libqxcb.so
+          test -s squashfs-root/usr/bin/_internal/PySide6/Qt/plugins/platforms/libqwayland.so
+          set +e
+          QT_QPA_PLATFORM=offscreen timeout 5s ./squashfs-root/AppRun > native-startup.log 2>&1
+          result=$?
+          set -e
+          cat native-startup.log
+          test "$result" -eq 124
       - uses: actions/upload-artifact@v4
         with:
           name: iShareScreen-linux-x86_64

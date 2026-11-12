@@ -25,6 +25,19 @@ def configure_environment() -> None:
             os.environ["LD_LIBRARY_PATH"] = original
         else:
             os.environ.pop("LD_LIBRARY_PATH", None)
+        # Qt is relocated by the embedded qt.conf installed by PyInstaller.
+        # Remove private plugin paths from the environment inherited by host
+        # tools, which may use an incompatible system Qt (e.g. KDE helpers).
+        bundle_root = Path(getattr(sys, "_MEIPASS", "/__iss_not_frozen__"))
+        for key in ("QT_PLUGIN_PATH", "QT_QPA_PLATFORM_PLUGIN_PATH", "QML2_IMPORT_PATH"):
+            if key not in os.environ:
+                continue
+            paths = [p for p in os.environ[key].split(os.pathsep)
+                     if p and not Path(p).is_relative_to(bundle_root)]
+            if paths:
+                os.environ[key] = os.pathsep.join(paths)
+            else:
+                os.environ.pop(key, None)
         # sounddevice asks ctypes.util.find_library before loading PortAudio.
         # Linux's ldconfig cache knows nothing about our private bundle.
         import ctypes.util
