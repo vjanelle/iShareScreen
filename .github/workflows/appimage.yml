@@ -1,0 +1,48 @@
+name: Linux AppImage
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  appimage:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install build libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libdbus-1-dev libglib2.0-dev libportaudio2
+      - name: Install application and build dependencies
+        run: python -m pip install '.[test]' -r packaging/linux/requirements-build.txt
+      - name: Test
+        run: python -m pytest
+      - name: Build AppImage
+        run: packaging/linux/build.sh
+      - name: Smoke-test extracted AppImage away from checkout
+        run: |
+          image=$(realpath dist/*.AppImage)
+          cd "$(mktemp -d)"
+          "$image" --appimage-extract > /dev/null
+          unset PYTHONPATH
+          ./squashfs-root/AppRun --version
+          ./squashfs-root/AppRun --help
+          ./squashfs-root/AppRun --list-decoders
+          test -s squashfs-root/usr/bin/_internal/isharescreen/frontend/wt/static/index.html
+          test -s squashfs-root/usr/bin/_internal/isharescreen/frontend/wt/static/audio-worklet.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iShareScreen-linux-x86_64
+          path: |
+            dist/*.AppImage
+            dist/*.AppImage.sha256
+          if-no-files-found: error

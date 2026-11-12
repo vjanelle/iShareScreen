@@ -3,8 +3,8 @@
 Just one file today: `~/.iss/last.json` (or the platform-equivalent),
 holding the most recently submitted connect form (sans password). On
 launch the browser connect GUI prefills its form from it. Passwords are
-deliberately NOT persisted — getting that wrong becomes a security
-incident; the convenience win is not worth the risk.
+never written here. Optional Linux password storage lives in the desktop
+keyring through isharescreen.credentials.
 """
 from __future__ import annotations
 
@@ -41,6 +41,7 @@ class ConnectFormValues:
     dynamic_resolution: bool = False
     hidpi: str = "auto"
     decoder: str = "auto"  # decoder name or "auto"
+    remember_password: bool = False
 
 
 def _state_dir() -> Path:
@@ -86,6 +87,7 @@ def load_last() -> Optional[ConnectFormValues]:
         dynamic_resolution=bool(data.get("dynamic_resolution", False)),
         hidpi=str(data.get("hidpi", "auto")),
         decoder=str(data.get("decoder", "auto")),
+        remember_password=bool(data.get("remember_password", False)),
     )
 
 
@@ -108,6 +110,7 @@ def save_last(values: ConnectFormValues) -> None:
             "dynamic_resolution": values.dynamic_resolution,
             "hidpi": values.hidpi,
             "decoder": values.decoder,
+            "remember_password": values.remember_password,
         }
         p.write_text(json.dumps(data, indent=2))
         try:

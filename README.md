@@ -48,6 +48,53 @@ available.
 
 #### Linux (Debian / Ubuntu)
 
+For a standalone viewer, use the **x86_64 AppImage** from the Linux AppImage
+CI artifact (unzip the artifact first):
+
+```sh
+chmod +x iShareScreen-0.1.0-x86_64.AppImage
+./iShareScreen-0.1.0-x86_64.AppImage
+```
+
+Python, application dependencies, and PortAudio are bundled. CI builds on
+Ubuntu 22.04 (glibc 2.35 baseline); locally built images require the build
+host's glibc or newer. Your desktop supplies its browser, graphics drivers,
+and D-Bus session. The connection form opens in your browser; select
+**desktop (native window)** for the native video viewer. The browser video
+frontend requires a browser supporting WebTransport and WebCodecs.
+
+If FUSE is unavailable, extract and run instead:
+
+```sh
+./iShareScreen-0.1.0-x86_64.AppImage --appimage-extract
+./squashfs-root/AppRun
+```
+
+On Linux, **Remember password in desktop keyring** saves the submitted
+host/account password using GNOME Keyring (Secret Service) or KDE Wallet
+(Plasma 5/6). Leave the password field blank to use the saved credential.
+**Forget saved password** deletes the entry for the host/account currently
+entered. Connecting with Remember unchecked also removes that saved entry.
+Your desktop may ask to unlock or grant access to its keyring. If access
+fails, enter the password manually; there is no plaintext storage fallback.
+Passwords are never embedded in the connection page or its JSON settings.
+CLI `--password-stdin` continues to work without accessing the keyring.
+
+Optional host packages: `libfdk-aac2` for AAC-ELD-SBR audio decoding,
+`xclip` (X11) or `wl-clipboard` (Wayland) for clipboard synchronization,
+and your GPU's VAAPI driver for hardware video decoding. These packages
+are separate from the Python environment bundled in the image.
+
+HEVC hardware selection also tries Vulkan through PyAV's `HWAccel` API.
+The linked FFmpeg must include that decoder backend, and the GPU/driver
+must support the stream's HEVC RExt 4:4:4 profile. Vulkan rendering support
+alone does not establish Vulkan video decoding support. Standard PyAV Linux
+wheels may omit VAAPI and Vulkan: installing Mesa drivers does not add those
+backends to an already bundled FFmpeg. The viewer probes a real sample and
+uses AVC when hardware HEVC 4:4:4 is unavailable.
+
+To install from source instead:
+
 1. Install Python and the system libraries that the GPU + window stack
    need (Vulkan loader, OpenGL, X11 / Wayland surfaces, PortAudio,
    AAC-ELD-SBR audio decoder):
@@ -56,6 +103,7 @@ available.
        libvulkan1 libgl1 libegl1 \
        libxrandr2 libxinerama1 libxcursor1 libxi6 \
        libportaudio2 libfdk-aac2 \
+       build-essential pkg-config python3-dev libdbus-1-dev libglib2.0-dev \
        xclip
    ```
    `libfdk-aac2` is only used for audio; if you skip it, video still
@@ -80,6 +128,34 @@ available.
 For Fedora / Arch / openSUSE, translate the apt package names with your
 distro's package manager (most are named the same or very close).
 
+### Building the Linux AppImage
+
+Build on Ubuntu 22.04 x86_64 for the supported baseline. Newer build hosts
+produce images requiring their newer glibc. No macOS host is needed to build.
+
+```sh
+sudo apt install python3 python3-venv build-essential pkg-config \
+    libdbus-1-dev libglib2.0-dev libportaudio2 curl
+python3 -m venv .venv-build
+.venv-build/bin/python -m pip install '.[test]' -r packaging/linux/requirements-build.txt
+.venv-build/bin/python -m pytest
+PYTHON=.venv-build/bin/python packaging/linux/build.sh
+```
+
+The build downloads checksum-verified appimagetool 1.9.1 and produces
+`dist/iShareScreen-0.1.0-x86_64.AppImage` plus its SHA-256 checksum.
+It reuses that tool's embedded runtime, so no floating runtime download is
+needed. `APPIMAGETOOL=/path/to/appimagetool.AppImage` can supply a trusted
+local tool instead; you are responsible for verifying an override.
+`ISS_PORTAUDIO_LIBRARY=/path/to/libportaudio.so.2` can supply a library
+outside standard distro paths. Exact installed package versions and the
+build's glibc are recorded in `usr/share/doc/isharescreen/build-info.json`
+inside the image. Python dependency ranges remain as declared in
+`pyproject.toml`; the build is repeatable but is not bit-for-bit reproducible.
+
+The `Linux AppImage` GitHub Actions workflow runs tests and builds an artifact;
+it does not publish a release.
+
 ### Firewall
 
 iss connects to the host Mac over **TCP 5900** (control) plus two UDP
@@ -93,11 +169,11 @@ UDP 5900–5901 inbound.
 iss
 ```
 
-Opens the terminal UI: a connect form for host / username / password
-(masked) and resolution, then a live session view with per-tile fps and
-loss, throughput, UDP queue health, and a log tail. The actual screen
-streams in a separate window. Last-session values pre-fill the form on
-the next launch; passwords are never persisted.
+Opens a browser connection form for host / username / password (masked)
+and resolution, then a live diagnostics dashboard. Video streams in a
+browser tab or native window. The last host, username, frontend, and
+remember-password preference pre-fill the form on the next launch.
+Passwords are stored only when requested, in the Linux desktop keyring.
 
 Any flag accepted by `iss --headless` also pre-fills the form, so
 launchers can do:

@@ -132,7 +132,7 @@ _REGISTRY: list[DecoderSpec] = [
                 note="direct VideoToolbox (VTDecompressionSession, no libav RPS layer)"),
     DecoderSpec("libav-hevc444", "hevc", "444", ("*",), "hardware", 60,
                 available=lambda: _hevc444_method() == "libav", build=_build_libav_hevc,
-                note="libav generic hwaccel — d3d11va RExt / vaapi / cuda (VT-hwaccel fallback on mac)"),
+                note="libav generic hwaccel — d3d11va RExt / vaapi / cuda / vulkan (depends on FFmpeg build)"),
     DecoderSpec("qsv-hevc444", "hevc", "444", ("win32", "linux"), "hardware", 50,
                 available=lambda: _hevc444_method() == "qsv", build=_build_qsv,
                 note="Intel Quick Sync (hevc_qsv) — fallback where generic DXVA lacks 4:4:4"),

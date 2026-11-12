@@ -28,6 +28,10 @@ import webbrowser
 from collections import deque
 from urllib.parse import parse_qs
 
+from isharescreen import credentials
+from isharescreen.runtime import session_command
+from isharescreen.tui.storage import ConnectFormValues, save_last
+
 try:
     from isharescreen.tui.storage import load_last
 except Exception:  # pragma: no cover
@@ -232,13 +236,49 @@ def _browser_is_safari(ua: str) -> bool:
                    ("chrome", "chromium", "crios", "edg", "fxios", "android", "opr"))
 
 
+def _prepare_credentials(values: dict) -> str | None:
+    host, user = values.get("host", "").strip(), values.get("user", "").strip()
+    if not host or not user:
+        return None
+    password = values.get("password", "")
+    if sys.platform.startswith("linux"):
+        if not password:
+            password = credentials.get_password(host, user) or ""
+        if values.get("remember_password") == "on":
+            if password and not credentials.set_password(host, user, password):
+                _emit("log", "[gui] password not saved: desktop keyring unavailable, locked, or denied access")
+        else:
+            # Resolve before deleting so a saved credential can be used once.
+            if not credentials.delete_password(host, user):
+                _emit("log", "[gui] could not confirm removal of saved password; unlock the desktop keyring and use Forget")
+    return password or None
+
+
+def _forget_credentials(values: dict) -> bool:
+    return credentials.delete_password(values.get("host", "").strip(),
+                                       values.get("user", "").strip())
+
+
+def _save_form(values: dict) -> None:
+    save_last(ConnectFormValues(
+        host=values.get("host", "").strip(), user=values.get("user", "").strip(),
+        password="", advertise=values.get("advertise", "auto"),
+        audio=values.get("audio") == "on", curtain=values.get("curtain") == "on",
+        hdr=False, share_console=False, alt_session=False,
+        frontend=values.get("frontend", "browser"),
+        dynamic_resolution=values.get("advertise", "auto").lower() == "auto",
+        hidpi=values.get("scale", "2.0"), decoder=values.get("decoder", "auto"),
+        remember_password=values.get("remember_password") == "on",
+    ))
+
+
 def _launch(values: dict) -> None:
     global _PROC, _LAST, _LAUNCH_N
     host = values.get("host", "").strip()
     user = values.get("user", "").strip()
-    password = values.get("password", "")
+    password = _prepare_credentials(values)
     if not (host and user and password):
-        _emit("log", "[gui] host, user, and password are all required")
+        _emit("log", "[gui] host, user, and a password (entered or saved in the desktop keyring) are required")
         _STATE["status"] = "idle"
         _emit("status", dict(_STATE))
         return
@@ -250,6 +290,8 @@ def _launch(values: dict) -> None:
     # touch a bridge on another port or any non-iss process.
     _free_bridge_port(_BRIDGE_PORT)
     _LAST = dict(values)
+    _LAST["password"] = password
+    _save_form(values)
     frontend = values.get("frontend", "browser")
     _STATE.update(host=host, frontend=frontend, status="connecting")
     _emit("status", dict(_STATE))
@@ -258,8 +300,8 @@ def _launch(values: dict) -> None:
     sock_path = os.path.join(
         os.path.expanduser("~/.iss"), f"gui-{os.getpid()}-{_LAUNCH_N}.sock")
     log_path = sock_path[:-5] + ".log"   # gui-<pid>-<n>.log, next to the socket
-    cmd = [
-        sys.executable, "-m", "isharescreen.cli",
+    os.makedirs(os.path.dirname(sock_path), mode=0o700, exist_ok=True)
+    cmd = session_command() + [
         "--host", host, "-u", user, "--password-stdin",
         "--frontend", frontend, "--control-socket", sock_path,
         "--log-file", log_path,
@@ -371,11 +413,13 @@ _FORM = """<!doctype html><html><head><title>iShareScreen — Connect</title>__H
  .row { display:flex; gap:10px; align-items:center; margin:2px 0 12px; } .row input { width:auto; margin:0; }
  button { width:100%; margin-top:8px; padding:12px; font-size:15px; font-weight:600; color:#fff; background:#4f8cff; border:0; border-radius:9px; cursor:pointer; } button:hover { background:#5f97ff; }
 </style></head><body>
- <form class="card" method="post" action="/connect" onsubmit="return prepVideo()">
+ <form class="card" method="post" action="/connect" onsubmit="return event.submitter && event.submitter.getAttribute('formaction') === '/forget' ? true : prepVideo()">
   <h1>iShareScreen</h1><p class="sub">Connect to a Mac</p>
   <label>Host</label><input type="text" name="host" placeholder="Mac hostname or IP" value="__HOST__" autofocus>
   <label>User</label><input type="text" name="user" placeholder="macOS account" value="__USER__">
-  <label>Password</label><input type="password" name="password" placeholder="password">
+  <label>Password</label><input type="password" name="password" placeholder="Enter password, or leave blank to use keyring">
+  __KEYRING_CONTROLS__
+  <p role="status">__NOTICE__</p>
   <label>Frontend</label>
   <select name="frontend"><option value="browser" __BROWSER_SEL__>browser (WebTransport + WebCodecs)</option><option value="desktop" __DESKTOP_SEL__>desktop (native window)</option></select>
   <label>Resolution</label>
@@ -650,9 +694,10 @@ def _decoder_options_html() -> str:
     return "\n   ".join(opts)
 
 
-def _form_page() -> bytes:
+def _form_page(notice: str = "") -> bytes:
     host = user = ""
     frontend = "browser"
+    remember = False
     if load_last is not None:
         try:
             last = load_last()
@@ -662,8 +707,16 @@ def _form_page() -> bytes:
             host = getattr(last, "host", "") or ""
             user = getattr(last, "user", "") or ""
             frontend = getattr(last, "frontend", "browser") or "browser"
+            remember = getattr(last, "remember_password", False)
     import html as _html
     return (_FORM
+            .replace("__NOTICE__", _html.escape(notice))
+            .replace("__KEYRING_CONTROLS__", (
+                '<label class="row"><input type="checkbox" name="remember_password" '
+                + ('checked ' if remember else '')
+                + '>Remember password in desktop keyring</label>'
+                '<button type="submit" formaction="/forget" formnovalidate>Forget saved password</button>'
+            ) if sys.platform.startswith("linux") else "")
             .replace("__HEAD__", _HEAD)
             .replace("__HOST__", _html.escape(host, quote=True))
             .replace("__USER__", _html.escape(user, quote=True))
@@ -718,6 +771,11 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", 0))
         raw = self.rfile.read(length).decode("utf-8") if length else ""
         values = {k: v[0] for k, v in parse_qs(raw).items()}
+        if self.path == "/forget":
+            forgotten = _forget_credentials(values)
+            self._html(_form_page("Saved password forgotten." if forgotten else
+                                  "Could not forget password. Check host, user, and desktop keyring access."))
+            return
         if self.path == "/action":
             action = values.get("action")
             if action == "fir":
@@ -735,6 +793,9 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             _emit("session_choice", {"console_user": console_user})
             got = _CHOICE_EVENT.wait(timeout=50)
             self._html((_CHOICE_RESULT if got else "share").encode())
+            return
+        if self.path != "/connect":
+            self._html(b"not found", 404)
             return
         global _VIDEO_URL
         _VIDEO_URL = None   # clear the prior session's URL so the waiting tab waits for THIS one

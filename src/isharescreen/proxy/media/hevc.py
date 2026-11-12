@@ -127,7 +127,7 @@ _PTS_MAP_PRUNE_KEEP = 2000
 _PLATFORM_HWACCELS: dict[str, tuple[str, ...]] = {
     "darwin": (),
     "win32": ("d3d11va", "d3d12va"),
-    "*": ("vaapi", "cuda"),
+    "*": ("vaapi", "cuda", "vulkan"),
 }
 
 
@@ -1049,6 +1049,9 @@ class HevcDecoder:
             c.flags = _CODEC_FLAG_LOW_DELAY
             c.flags2 = _CODEC_FLAG2_FAST
             c.open()
+            if not getattr(c, "is_hwaccel", False):
+                log.info("hwaccel %s did not bind in this FFmpeg build", hw_type)
+                return None
             return c
         except Exception as e:
             log.info("hwaccel %s unavailable: %s", hw_type, e)

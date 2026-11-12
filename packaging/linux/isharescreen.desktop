@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=iShareScreen
+Comment=Connect to a Mac with High Performance Screen Sharing
+Exec=iss
+Icon=isharescreen
+Terminal=false
+Categories=Network;RemoteAccess;
+StartupNotify=true

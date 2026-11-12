@@ -9,9 +9,9 @@ macOS). `--codec auto` (the default) resolves to HEVC 4:4:4 when the GPU can
 hardware-decode it and to H.264 4:2:0 otherwise.
 
 Detection is a *real* hardware decode of a tiny embedded HEVC 4:4:4 IDR through
-the same libav hwaccel path production uses. If the decoded frame comes back in
-a hardware pixel format the GPU supports it; if libav fell back to software
-(frame format `yuv444p`) or the hwaccel failed to initialise, it does not. This
+the same libav hwaccel path production uses. The context must actually bind
+hardware acceleration and produce a frame. CPU-accessible output can be a
+downloaded GPU frame, so its pixel format alone is not proof either way. This
 tests the actual decode path rather than trusting a static profile table, so it
 can't be fooled by a profile GUID that's advertised but broken.
 """
@@ -37,7 +37,7 @@ _HEVC444_SAMPLE = bytes.fromhex(
 _PROBE_HWACCELS: dict[str, tuple[str, ...]] = {
     "darwin": ("videotoolbox",),
     "win32": ("d3d11va", "d3d12va"),
-    "*": ("vaapi", "cuda"),
+    "*": ("vaapi", "cuda", "vulkan"),
 }
 
 _cache: dict[str, bool] = {}
@@ -66,7 +66,9 @@ def _probe_one(hwaccel_type: str) -> bool:
         ctx = av.CodecContext.create("hevc", "r", hwaccel=hw)
         frames = list(ctx.decode(av.Packet(_HEVC444_SAMPLE)))
         frames += list(ctx.decode(None))  # flush
-        ok = bool(frames)
+        # PyAV may ignore an accelerator absent from its FFmpeg build even
+        # with software fallback disabled. Require actual context binding.
+        ok = bool(frames) and bool(getattr(ctx, "is_hwaccel", False))
         log.info("hevc444 probe (%s): %s%s", hwaccel_type,
                  "HW-decoded" if ok else "no HW frame",
                  (" (fmt=%s)" % frames[0].format.name) if frames else "")

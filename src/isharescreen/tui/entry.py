@@ -17,6 +17,8 @@ _CLI_ROUTING_FLAGS = {"--headless", "--help", "-h", "--version", "--list-decoder
 
 
 def main() -> int:
+    from isharescreen.runtime import configure_environment
+    configure_environment()
     argv = sys.argv[1:]
     if "--tui" in argv:
         print("iss: the terminal TUI has been removed; opening the browser "
