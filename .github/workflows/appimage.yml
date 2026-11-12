@@ -39,6 +39,8 @@ jobs:
           ./squashfs-root/AppRun --list-decoders
           test -s squashfs-root/usr/bin/_internal/isharescreen/frontend/wt/static/index.html
           test -s squashfs-root/usr/bin/_internal/isharescreen/frontend/wt/static/audio-worklet.js
+          test -s squashfs-root/usr/bin/_internal/isharescreen/proxy/media/samples/hevc420-idr.hevc
+          test -s squashfs-root/usr/bin/_internal/isharescreen/proxy/media/samples/hevc444-idr.hevc
       - uses: actions/upload-artifact@v4
         with:
           name: iShareScreen-linux-x86_64

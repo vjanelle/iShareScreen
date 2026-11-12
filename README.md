@@ -83,7 +83,8 @@ fails, enter the password manually; there is no plaintext storage fallback.
 Passwords are never embedded in the connection page or its JSON settings.
 CLI `--password-stdin` continues to work without accessing the keyring.
 
-Optional host packages: `libfdk-aac2` for AAC-ELD-SBR audio decoding,
+Audio uses the bundled PyAV plain AAC-ELD decoder by default. Optional host
+packages: `libfdk-aac2` for the alternative AAC-ELD-SBR decoder,
 `xclip` (X11) or `wl-clipboard` (Wayland) for clipboard synchronization,
 and your GPU's VAAPI driver for hardware video decoding. These packages
 are separate from the Python environment bundled in the image.
@@ -94,7 +95,7 @@ must support the stream's HEVC RExt 4:4:4 profile. Vulkan rendering support
 alone does not establish Vulkan video decoding support. Standard PyAV Linux
 wheels may omit VAAPI and Vulkan: installing Mesa drivers does not add those
 backends to an already bundled FFmpeg. The viewer probes a real sample and
-uses AVC when hardware HEVC 4:4:4 is unavailable.
+tries hardware HEVC 4:4:4, then hardware HEVC 4:2:0, then AVC.
 
 To install from source instead:
 

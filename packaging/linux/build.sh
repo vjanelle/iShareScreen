@@ -61,8 +61,14 @@ Path(sys.argv[1]).write_text(json.dumps({
     "packages": {d.metadata["Name"]: d.version for d in m.distributions()},
 }, indent=2) + "\n")
 PY
+image="$root/dist/iShareScreen-$version-$arch.AppImage"
+staging=$(mktemp -d "$root/dist/.appimage-build.XXXXXX")
 ARCH="$arch" "$tool" --appimage-extract-and-run --no-appstream \
     --mksquashfs-opt=-processors --mksquashfs-opt=2 \
-    --runtime-file "$runtime" "$appdir" "$root/dist/iShareScreen-$version-$arch.AppImage"
+    --runtime-file "$runtime" "$appdir" "$staging/iShareScreen.AppImage"
+# Replace only a completed image. Linux allows this rename even while the
+# previous executable is running; opening that executable for writing fails.
+mv -f -- "$staging/iShareScreen.AppImage" "$image"
+rmdir -- "$staging"
 sha256sum "dist/iShareScreen-$version-$arch.AppImage" > "dist/iShareScreen-$version-$arch.AppImage.sha256"
 echo "Built dist/iShareScreen-$version-$arch.AppImage"
