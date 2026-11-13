@@ -203,6 +203,8 @@ On Linux and Windows, opens the native Qt connection form and diagnostics
 dashboard. Video streams in a separate native window. Connection settings
 pre-fill the form on the next launch. Passwords are saved only when requested,
 in the Linux desktop keyring or Windows Credential Manager.
+Ctrl-C in the launching terminal stops the active viewer worker and exits
+the native application cleanly.
 
 To use the previous browser controller instead:
 

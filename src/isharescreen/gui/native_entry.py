@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import sys
+import signal
 
 
 def main(argv: list[str] | None = None) -> int:
     try:
         from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import QCoreApplication, QEvent, QTimer
     except ImportError:  # useful when using the optional Windows extra
         print(
             "The native interface requires PySide6. Install it with "
@@ -26,7 +28,29 @@ def main(argv: list[str] | None = None) -> int:
     app.setStyleSheet(_APP_STYLE)
     controller = _NativeController(ConnectWindow(), NativeSession())
     controller.connect_window.show()
-    return app.exec()
+    app.aboutToQuit.connect(controller.shutdown)
+    # Qt's native event loop can stay in C++ indefinitely while idle. Give
+    # Python regular turns to dispatch terminal signals, without raising a
+    # KeyboardInterrupt inside a Qt callback (which Qt cannot propagate).
+    heartbeat = QTimer(app)
+    heartbeat.timeout.connect(lambda: None)
+    heartbeat.start(100)
+    previous = {}
+    for signum in (signal.SIGINT, signal.SIGTERM):
+        previous[signum] = signal.signal(signum, lambda number, _frame: app.exit(128 + number))
+    try:
+        return app.exec()
+    finally:
+        heartbeat.stop()
+        heartbeat.deleteLater()
+        for signum, handler in previous.items():
+            signal.signal(signum, handler)
+        controller.shutdown()
+        # Destroy Python-derived widgets while Qt and Python are both fully
+        # alive. Leaving them for PySide's interpreter-exit sweep can crash
+        # in destroyQCoreApplication after a dashboard has been closed.
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        app.aboutToQuit.disconnect(controller.shutdown)
 
 
 class _NativeController:
@@ -36,9 +60,12 @@ class _NativeController:
         self.connect_window = connect_window
         self.session = session
         self.dashboard = None
+        self._shutting_down = False
         self.connect_window.connect_requested.connect(self._connect)
 
     def _connect(self, values) -> None:
+        if self._shutting_down:
+            return
         from .native_dashboard import DashboardWindow
         self.connect_window.hide()
         self.dashboard = DashboardWindow(self.session, values)
@@ -47,11 +74,28 @@ class _NativeController:
         self.session.start(values)
 
     def _return_to_connect(self) -> None:
+        if self._shutting_down:
+            return
+        self._retire_dashboard()
         self.connect_window.reset_after_disconnect()
         self.connect_window.show()
         self.connect_window.raise_()
         self.connect_window.activateWindow()
-        self.dashboard = None
+
+    def _retire_dashboard(self) -> None:
+        dashboard, self.dashboard = self.dashboard, None
+        if dashboard is not None:
+            dashboard.hide()
+            dashboard.deleteLater()
+
+    def shutdown(self) -> None:
+        if self._shutting_down:
+            return
+        self._shutting_down = True
+        self.session.stop()
+        self._retire_dashboard()
+        self.connect_window.hide()
+        self.connect_window.deleteLater()
 
 
 _APP_STYLE = """
