@@ -28,6 +28,9 @@ def main(argv: list[str] | None = None) -> int:
     app.setStyleSheet(_APP_STYLE)
     controller = _NativeController(ConnectWindow(), NativeSession())
     controller.connect_window.show()
+    if sys.platform.startswith("linux"):
+        from .appimage_install import offer_install
+        QTimer.singleShot(0, lambda: offer_install(controller.connect_window))
     app.aboutToQuit.connect(controller.shutdown)
     # Qt's native event loop can stay in C++ indefinitely while idle. Give
     # Python regular turns to dispatch terminal signals, without raising a
