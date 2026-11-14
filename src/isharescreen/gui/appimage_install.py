@@ -39,7 +39,7 @@ def install_appimage(appimage: str | Path, icon: str | Path) -> None:
     desktop.write_text(
         '[Desktop Entry]\nType=Application\nName=iShareScreen\n'
         'Comment=Connect to a Mac with High Performance Screen Sharing\n'
-        f'Exec="{executable}"\nIcon=isharescreen\nTerminal=false\n'
+        f'Exec="{executable}"\nIcon={icon_target}\nTerminal=false\n'
         'Categories=Network;RemoteAccess;\nStartupNotify=true\n', encoding='utf-8'
     )
 

@@ -27,6 +27,7 @@ install: appimage
 		install -D -m 755 "dist/iShareScreen-$$version-$$(uname -m).AppImage" "$(PREFIX)/bin/iss"
 	install -D -m 644 packaging/linux/isharescreen.desktop "$(PREFIX)/share/applications/isharescreen.desktop"
 	install -D -m 644 packaging/linux/isharescreen.svg "$(PREFIX)/share/icons/hicolor/scalable/apps/isharescreen.svg"
+	@$(UV) run --no-sync python -c 'import pathlib, sys; p = pathlib.Path(sys.argv[1]); p.write_text(p.read_text().replace("Icon=isharescreen", "Icon=" + sys.argv[2]))' "$(PREFIX)/share/applications/isharescreen.desktop" "$(PREFIX)/share/icons/hicolor/scalable/apps/isharescreen.svg"
 	@if command -v update-desktop-database >/dev/null 2>&1; then update-desktop-database "$(PREFIX)/share/applications"; fi
 
 test:

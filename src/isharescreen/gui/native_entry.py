@@ -5,6 +5,17 @@ import sys
 import signal
 
 
+def _configure_linux_desktop(app) -> None:
+    import os
+    from pathlib import Path
+    from PySide6.QtGui import QIcon
+
+    app.setDesktopFileName("isharescreen")
+    appdir = os.environ.get("APPDIR")
+    icon = Path(appdir) / "isharescreen.svg" if appdir else None
+    app.setWindowIcon(QIcon(str(icon)) if icon and icon.is_file() else QIcon.fromTheme("isharescreen"))
+
+
 def main(argv: list[str] | None = None) -> int:
     try:
         from PySide6.QtWidgets import QApplication
@@ -23,6 +34,8 @@ def main(argv: list[str] | None = None) -> int:
     app = QApplication(argv or sys.argv)
     app.setApplicationName("iShareScreen")
     app.setOrganizationName("iShareScreen")
+    if sys.platform.startswith("linux"):
+        _configure_linux_desktop(app)
     app.setQuitOnLastWindowClosed(True)
     app.setStyle("Fusion")
     app.setStyleSheet(_APP_STYLE)
