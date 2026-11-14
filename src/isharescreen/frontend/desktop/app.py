@@ -40,6 +40,19 @@ _KEYSYM_SUPER_R = 0xffec
 log = logging.getLogger(__name__)
 
 
+def _create_viewer_window(*, title, size):
+    # RenderCanvas creates the GLFW window hidden and then shows it. Prevent
+    # both creation and showing from activating it over another application.
+    glfw.init()
+    glfw.window_hint(glfw.FOCUSED, False)
+    glfw.window_hint(glfw.FOCUS_ON_SHOW, False)
+    try:
+        return RenderCanvas(title=title, size=size, max_fps=120)
+    finally:
+        glfw.window_hint(glfw.FOCUSED, True)
+        glfw.window_hint(glfw.FOCUS_ON_SHOW, True)
+
+
 # How long the loop blocks waiting for the next tile before pumping
 # events again. Short enough to stay responsive, long enough that we
 # don't busy-spin and starve the decoder thread.
@@ -360,7 +373,7 @@ def run(
     adv = config.advertise
     win_w = (adv.width if adv else 0) or scaled_w or canvas_w
     win_h = (adv.height if adv else 0) or scaled_h or canvas_h
-    window = RenderCanvas(title=title, size=(win_w, win_h), max_fps=120)
+    window = _create_viewer_window(title=title, size=(win_w, win_h))
     glfw_window = window._window  # for raw glfw input callbacks only
     # Lock the window to the content's aspect ratio so the stream always fills
     # it edge-to-edge with no letterbox side-bars (restores pre-merge behavior;
@@ -698,8 +711,7 @@ def run(
 
     # Grab the keyboard at the OS level so Win/Super combos and
     # Alt+Tab go to the remote Mac instead of the local desktop. On by
-    # default; opt out with ISS_GRAB_KEYBOARD=0 (e.g. when debugging
-    # local shortcuts while iss is foreground).
+    # default; opt out with ISS_GRAB_KEYBOARD=0.
     if os.environ.get("ISS_GRAB_KEYBOARD", "1") != "0":
         from .keyboard_grab import make_grab
         # The Win32 backend needs to deliver intercepted keys directly
@@ -739,7 +751,7 @@ def run(
         base = min(rw0, 1280) or 1280
         win_w2 = max(1, base)
         win_h2 = max(1, int(base * rh0 / rw0)) if rw0 else base
-        w2 = RenderCanvas(title=title_s, size=(win_w2, win_h2), max_fps=120)
+        w2 = _create_viewer_window(title=title_s, size=(win_w2, win_h2))
         gw2 = w2._window
         try:
             glfw.set_window_aspect_ratio(gw2, rw0, rh0)

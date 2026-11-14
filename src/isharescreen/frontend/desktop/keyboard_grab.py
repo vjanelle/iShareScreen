@@ -12,10 +12,9 @@ Implementations:
            zwp_keyboard_shortcuts_inhibit_v1. Falls through to no-op
            with a warning. Use an X11 session for full grab on Linux.
 
-Default off — opt in with ISS_GRAB_KEYBOARD=1. The Win32 hook in
-particular intercepts every keystroke system-wide; it self-gates on
-foreground-window match to keep that cheap, but users who don't need
-it shouldn't pay for it.
+Enabled by default while the viewer has focus; opt out with
+ISS_GRAB_KEYBOARD=0. The Win32 hook self-gates on a foreground-window
+match.
 """
 from __future__ import annotations
 
