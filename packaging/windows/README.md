@@ -39,3 +39,8 @@ already-built EXE without rerunning PyInstaller, use
 install wizard, installs per-user under `%LOCALAPPDATA%\Programs\iShareScreen`
 by default, adds a Start Menu shortcut, and supports upgrades and removal
 through Windows Settings. It does not require administrator rights.
+
+GitHub Actions builds the Windows x64 MSI when a `vMAJOR.MINOR.PATCH` tag is
+pushed and attaches it to that GitHub Release. The tag version must match the
+version in `pyproject.toml`. A manual run from the Actions tab builds and
+uploads the MSI as a workflow artifact without publishing a release.

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "isharescreen"
-version = "0.1.0"
+version = "0.2.0"
 description = "Cross-platform client for Apple's macOS Screen Sharing High Performance mode"
 readme = "README.md"
 requires-python = ">=3.10"

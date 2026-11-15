@@ -1,0 +1,59 @@
+name: Windows MSI
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  msi:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Verify release tag version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: pwsh
+        run: |
+          $projectVersion = [regex]::Match(
+            (Get-Content pyproject.toml -Raw),
+            '(?m)^version\s*=\s*"(?<version>\d+\.\d+\.\d+)"'
+          ).Groups['version'].Value
+          $tagVersion = $env:GITHUB_REF_NAME.TrimStart('v')
+          if (-not $projectVersion -or $tagVersion -ne $projectVersion) {
+            throw "Release tag v$tagVersion must match pyproject.toml version $projectVersion."
+          }
+
+      - name: Install build dependencies
+        shell: pwsh
+        run: python -m pip install --upgrade pip && python -m pip install ".[windows-build]"
+
+      - name: Build MSI
+        shell: pwsh
+        run: .\packaging\windows\build-msi.ps1
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iShareScreen-windows-x64
+          path: dist/iShareScreen.msi
+          if-no-files-found: error
+
+      - name: Publish MSI to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/iShareScreen.msi
