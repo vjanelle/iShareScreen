@@ -3511,7 +3511,8 @@ class Session:
         from .protocol.negotiation import build_fbu_request
         try:
             neg.cipher.encrypt_and_send(
-                neg.sock, build_fbu_request(incremental=False))
+                neg.sock, build_fbu_request(
+                    incremental=False, w=1, h=1))
         except OSError as e:
             log.debug("cursor re-arm (FBUR) failed: %s", e)
 

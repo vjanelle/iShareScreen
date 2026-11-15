@@ -58,13 +58,16 @@ def test_wake_at_same_size_reoffers_existing_media(monkeypatch, codec):
     monkeypatch.setattr("isharescreen.proxy.session.time.monotonic", lambda: clock[0])
     session, sock, peer = _session(codec)
     session._handle_fbu(_layout())  # Initial layout confirmation.
-    assert [m[0] for m in _messages(sock, peer)] == [0x03]
+    initial_messages = _messages(sock, peer)
+    assert [m[0] for m in initial_messages] == [0x03]
+    assert initial_messages[0] == struct.pack(">BBHHHH", 0x03, 0, 0, 0, 1, 1)
 
     clock[0] = 160.0  # Sleep/wake, with the same backing and scaled sizes.
     session._handle_fbu(_layout())
 
     messages = _messages(sock, peer)
     assert [m[0] for m in messages] == [0x03, 0x1C]
+    assert messages[0] == struct.pack(">BBHHHH", 0x03, 0, 0, 0, 1, 1)
     offer = messages[1]
     assert offer[0x24:0x52] == bytes([1]) * 46
     assert b"video-offer" in offer and b"audio-offer" in offer
